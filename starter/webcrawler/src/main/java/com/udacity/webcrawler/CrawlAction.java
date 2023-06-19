@@ -1,5 +1,6 @@
 package com.udacity.webcrawler;
 
+import com.google.common.collect.ImmutableList;
 import com.udacity.webcrawler.parser.PageParser;
 import com.udacity.webcrawler.parser.PageParserFactory;
 
@@ -8,8 +9,10 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
 
 public final class CrawlAction extends RecursiveAction {
     private final Clock clock;
@@ -19,6 +22,7 @@ public final class CrawlAction extends RecursiveAction {
     private final int maxDepth;
     private final ConcurrentHashMap<String, Integer> counts;
     private final ConcurrentSkipListSet<String> visitedUrls;
+    private final List<Pattern> ignoredUrls;
 
     private CrawlAction(Clock clock,
                         PageParserFactory parserFactory,
@@ -26,7 +30,8 @@ public final class CrawlAction extends RecursiveAction {
                         Instant deadline,
                         int maxDepth,
                         ConcurrentHashMap<String, Integer> counts,
-                        ConcurrentSkipListSet<String> visitedUrls) {
+                        ConcurrentSkipListSet<String> visitedUrls,
+                        List<Pattern> ignoredUrls) {
         this.clock = clock;
         this.parserFactory = parserFactory;
         this.url = url;
@@ -34,6 +39,7 @@ public final class CrawlAction extends RecursiveAction {
         this.maxDepth = maxDepth;
         this.counts = counts;
         this.visitedUrls = visitedUrls;
+        this.ignoredUrls = ignoredUrls;
     }
 
     public static final class Builder {
@@ -44,22 +50,7 @@ public final class CrawlAction extends RecursiveAction {
         private int maxDepth;
         private ConcurrentHashMap<String, Integer> counts;
         private ConcurrentSkipListSet<String> visitedUrls;
-
-        public Builder(Clock clock,
-                       PageParserFactory parserFactory,
-                       String url,
-                       Instant deadline,
-                       int maxDepth,
-                       ConcurrentHashMap<String, Integer> counts,
-                       ConcurrentSkipListSet<String> visitedUrls) {
-            this.clock = clock;
-            this.parserFactory = parserFactory;
-            this.url = url;
-            this.deadline = deadline;
-            this.maxDepth = maxDepth;
-            this.counts = counts;
-            this.visitedUrls = visitedUrls;
-        }
+        private List<Pattern> ignoredUrls;
 
         public Builder setClock(Clock clock) {
             this.clock = clock;
@@ -96,8 +87,13 @@ public final class CrawlAction extends RecursiveAction {
             return this;
         }
 
+        public Builder setIgnoredUrls(List<Pattern> ignoredUrls) {
+            this.ignoredUrls = ignoredUrls;
+            return this;
+        }
+
         public CrawlAction build() {
-            return new CrawlAction(clock, parserFactory, url, deadline, maxDepth, counts, visitedUrls);
+            return new CrawlAction(clock, parserFactory, url, deadline, maxDepth, counts, visitedUrls, ignoredUrls);
         }
     }
 
@@ -106,11 +102,11 @@ public final class CrawlAction extends RecursiveAction {
         if (maxDepth == 0 || clock.instant().isAfter(deadline)) {
             return;
         }
-//        for (Pattern pattern : ignoredUrls) {
-//            if (pattern.matcher(url).matches()) {
-//                return;
-//            }
-//        }
+        for (Pattern pattern : ignoredUrls) {
+            if (pattern.matcher(url).matches()) {
+                return;
+            }
+        }
         if (visitedUrls.contains(url)) {
             return;
         }
@@ -135,6 +131,7 @@ public final class CrawlAction extends RecursiveAction {
                         .setMaxDepth(maxDepth - 1)
                         .setCounts(counts)
                         .setVisitedUrls(visitedUrls)
+                        .setIgnoredUrls(ignoredUrls)
                         .build())
                 .collect(Collectors.toList());
         invokeAll(subactions);
