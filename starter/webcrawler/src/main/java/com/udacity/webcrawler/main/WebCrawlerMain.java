@@ -42,7 +42,25 @@ public final class WebCrawlerMain {
     } else {
       resultWriter.write(Path.of(config.getResultPath()));
     }
+    // TODO: Write the crawl results to a JSON file (or System.out if the file name is empty)
+    if (!config.getResultPath().isEmpty()) {
+      Path outputPath = Path.of(config.getResultPath());
+      resultWriter.write(outputPath);
+    } else {
+      Writer writer = new BufferedWriter(new OutputStreamWriter(System.out));
+      resultWriter.write(writer);
+      writer.flush();
+    }
     // TODO: Write the profile data to a text file (or System.out if the file name is empty)
+    if (!config.getProfileOutputPath().isEmpty()) {
+      Path outputPath = Path.of(config.getProfileOutputPath());
+      profiler.writeData(outputPath);
+    } else {
+      try(Writer writer = new BufferedWriter(new OutputStreamWriter(System.out))) {
+        profiler.writeData(writer);
+        writer.flush();
+      }
+    }
   }
 
   public static void main(String[] args) throws Exception {
