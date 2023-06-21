@@ -107,18 +107,14 @@ public final class CrawlAction extends RecursiveAction {
                 return;
             }
         }
-        if (visitedUrls.contains(url)) {
+        if(!visitedUrls.add(url)) {
             return;
         }
-        visitedUrls.add(url);
         PageParser.Result result = parserFactory.get(url).parse();
         for (ConcurrentHashMap.Entry<String, Integer> e : result.getWordCounts().entrySet()) {
-            if (counts.containsKey(e.getKey())) {
-                counts.put(e.getKey(), e.getValue() + counts.get(e.getKey()));
-            } else {
-                counts.put(e.getKey(), e.getValue());
-            }
+            counts.compute(e.getKey(), (k, v) -> (v == null) ? e.getValue() : v + e.getValue());
         }
+
 
         List<CrawlAction> subactions = result
                 .getLinks()
